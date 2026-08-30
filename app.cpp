@@ -5,10 +5,12 @@
 #include <string>
 #include <unistd.h>
 #include <format>
+#include <map>
 
 std::vector<int> list;
+std::map<int ,std::string> Clients; 
 
-int handleClients(int clientfd)
+int handleClients(int clientfd,std::string clientip)
 {
     std::string response = "";
     while(true)
@@ -20,23 +22,18 @@ int handleClients(int clientfd)
             close(clientfd);
             std::cout << "DISCONNECTED : " << clientfd << std::endl;
             std::erase(list,clientfd);
+            Clients.erase(clientfd);
             return 1;
         }
         std::string request = buffer;
-        std::cout << "Client " << clientfd << " Message: " << request ;
-        if(request == "Hi\n" || request == "hi\n" || request == "hello\n")
+        std::cout << "Client " << clientip << " Message: " << request ;
+        for(auto [fd,ip] : Clients)
         {
-            response = "Hi! how can i help you.\n";
-            write(clientfd,response.c_str(),response.size());
-        }
-        else if(request == "BYE\n" || request == "bye\n")
-        {
-            response = "OK BYE BYE.";
-            write(clientfd,response.c_str(),response.size());
-        }
-        else{
-            response = "Hi! how can i help you.\n";
-            write(clientfd,response.c_str(),response.size());
+            std::string message = std::format("Client {} {} : {}",clientfd,ip,request);
+            if(fd != clientfd)
+            {
+                write(fd,message.c_str(),message.size());
+            }
         }
     }
     return 0;
@@ -76,6 +73,7 @@ void terminalinput()
             std::string n ;
             std::cout << "1.All clients\n2.Specific clients" << std::endl;
             std::cin >> n;       
+            std::string intro = "Server Message: ";
 
             if(n == "1")
             {
@@ -84,10 +82,11 @@ void terminalinput()
                 std::cin.ignore();
                 std::getline(std::cin,msg);
                 msg += "\n";
+                intro += msg;
                 
                 for(auto fd : list)
                 {
-                    write(fd,msg.c_str(),msg.size());
+                    write(fd,intro.c_str(),intro.size());
                 }
             }
             else if(n  == "2") {
@@ -101,7 +100,8 @@ void terminalinput()
                 std::getline(std::cin,msg);
 
                 msg += "\n";
-                write(clientfd,msg.c_str(),msg.size());
+                intro += msg;
+                write(clientfd,intro.c_str(),intro.size());
             }
         }
         else if(input == "3")
@@ -142,32 +142,34 @@ int main()
     {
 
         int clientfd = server.Accept();
+        std::string clientip = server.clientip;
         std::string response = "Hi,Welcome to the Server.\n";
         write(clientfd,response.c_str(),response.size());
 
  
 
         list.push_back(clientfd);
+        Clients[clientfd] = clientip;
         //broadcast 1
-        std::string msg = std::format("Client {} is online.\n",clientfd);
-        for(auto fd : list)
+        for(auto [fd,ip] : Clients) 
+        {
+            std::string msg = std::format("Client {} is online.\n",ip);
+            if(clientfd != fd)
+            {
+                write(clientfd,msg.c_str(),msg.size());
+            }
+        }
+        //broadcast 2
+        std::string msg = std::format("Client {} is online.\n",clientip);
+        for(auto [fd,ip] : Clients)
         {
             if(fd != clientfd)
             {
                 write(fd,msg.c_str(),msg.size());
             }
         }
-        //broadcast 2
-        for(auto fd : list)
-        {
-            if(fd != clientfd)
-            {
-                std::string msg2 = std::format("Client {} is online.\n",fd);
-                write(clientfd,msg2.c_str(),msg.size());
-            }
-        }
         
-        std::thread t(handleClients,clientfd);
+        std::thread t(handleClients,clientfd,clientip);
         t.detach();
     }
 }
