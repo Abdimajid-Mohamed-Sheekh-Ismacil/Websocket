@@ -19,6 +19,14 @@ int handleClients(int clientfd,std::string clientip)
         int n = read(clientfd,buffer,sizeof(buffer));
         if(n <= 0)
         {
+            std::string msg = std::format("CLIENT {} DISCONNECTED.\n",clientip);
+            for(auto [fd,ip] : Clients)
+            {
+                if(fd != clientfd)
+                {
+                    write(fd,msg.c_str(),msg.size());
+                }
+            }
             close(clientfd);
             std::cout << "DISCONNECTED : " << clientfd << std::endl;
             std::erase(list,clientfd);
