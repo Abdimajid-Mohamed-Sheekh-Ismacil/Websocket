@@ -12,7 +12,7 @@ std::map<int ,std::string> Clients;
 
 int handleClients(int clientfd,std::string clientip)
 {
-    std::string response = "";
+    std::string request = "";
     while(true)
     {
         char buffer[1024] = {0};
@@ -33,16 +33,25 @@ int handleClients(int clientfd,std::string clientip)
             Clients.erase(clientfd);
             return 1;
         }
-        std::string request = buffer;
-        std::cout << "Client " << clientip << " Message: " << request ;
-        for(auto [fd,ip] : Clients)
+        request += buffer;
+        while(request.find("\n") != std::string::npos)
         {
-            std::string message = std::format("Client {} {} : {}",clientfd,ip,request);
-            if(fd != clientfd)
+            int x = request.find('\n');
+            std::string result = request.substr(0,x);
+            request = request.substr(x + 1);
+            result += "\n";
+            std::cout << "Client " << clientip << " Message: " << result ;
+            for(auto [fd,ip] : Clients)
             {
-                write(fd,message.c_str(),message.size());
+                std::string message = std::format("Client {} {} : {}",clientfd,ip,result);
+                if(fd != clientfd)
+                {
+                    write(fd,message.c_str(),message.size());
+                }
             }
+
         }
+       
     }
     return 0;
 }
